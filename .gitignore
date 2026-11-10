@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# credenciais: nunca sobem
+.env
+relatorio.*
