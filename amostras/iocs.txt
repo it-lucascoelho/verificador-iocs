@@ -1,0 +1,9 @@
+# IPs para teste (reservados para documentação, não são reais)
+8.8.8.8
+1.1.1.1
+203.0.113.50
+198.51.100.7
+
+# linhas abaixo servem para testar a validação
+999.999.1.1
+isso-nao-e-um-ip

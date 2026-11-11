@@ -1,3 +1,4 @@
+import ipaddress
 import os
 
 import requests
@@ -6,6 +7,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 URL = "https://api.abuseipdb.com/api/v2/check"
+
+
+def ler_iocs(caminho):
+    """Lê o arquivo e devolve uma lista de textos, ignorando vazias e comentários."""
+    iocs = []
+    with open(caminho, "r", encoding="utf-8") as f:
+        for linha in f:
+            linha = linha.strip()
+            if linha and not linha.startswith("#"):
+                iocs.append(linha)
+    return iocs
+
+
+def ip_valido(texto):
+    try:
+        ipaddress.ip_address(texto)
+        return True
+    except ValueError:
+        return False
 
 
 def consultar_ip(ip):
@@ -24,9 +44,12 @@ def consultar_ip(ip):
 
 
 if __name__ == "__main__":
-    dados = consultar_ip("8.8.8.8")
-    print(f"IP: {dados['ipAddress']}")
-    print(f"Pontuação de abuso: {dados['abuseConfidenceScore']}%")
-    print(f"Total de denúncias: {dados['totalReports']}")
-    print(f"País: {dados['countryCode']}")
-    print(f"Provedor: {dados['isp']}")
+    for ioc in ler_iocs("amostras/iocs.txt"):
+        if not ip_valido(ioc):
+            print(f"{ioc}: IGNORADO (não é um IP válido)")
+            continue
+        dados = consultar_ip(ioc)
+        print(
+            f"{ioc}: pontuação {dados['abuseConfidenceScore']}% | "
+            f"{dados['totalReports']} denúncias | {dados['countryCode']} | {dados['isp']}"
+        )
