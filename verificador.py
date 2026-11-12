@@ -1,8 +1,10 @@
 import ipaddress
+import json
 import os
 
 import requests
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -18,7 +20,11 @@ class ErroFatal(Exception):
 
 
 def ler_iocs(caminho):
-    """Lê o arquivo e devolve uma lista de textos, ignorando vazias e comentários."""
+    """Lê IOCs de um .txt (um por linha) ou IPs de um relatório .json do analisador."""
+    if caminho.endswith(".json"):
+        with open(caminho, "r", encoding="utf-8") as f:
+            return [item["ip"] for item in json.load(f)]
+
     iocs = []
     with open(caminho, "r", encoding="utf-8") as f:
         for linha in f:
@@ -64,11 +70,24 @@ def consultar_ip(ip):
 
     return resposta.json()["data"]
 
+LIMITE_MALICIOSO = 75
+LIMITE_SUSPEITO = 25
 
-if __name__ == "__main__":
-    for ioc in ler_iocs("amostras/iocs.txt"):
+
+def classificar(pontuacao):
+    if pontuacao >= LIMITE_MALICIOSO:
+        return "MALICIOSO"
+    if pontuacao >= LIMITE_SUSPEITO:
+        return "SUSPEITO"
+    return "LIMPO"
+
+
+def verificar_iocs(iocs):
+    """Consulta cada IOC e devolve uma lista de resultados (um dicionário por IOC)."""
+    resultados = []
+    for ioc in iocs:
         if not ip_valido(ioc):
-            print(f"{ioc}: IGNORADO (não é um IP válido)")
+            resultados.append({"ioc": ioc, "status": "IGNORADO", "erro": "não é um IP válido"})
             continue
 
         try:
@@ -77,12 +96,34 @@ if __name__ == "__main__":
             print(f"ERRO FATAL: {erro}. Encerrando.")
             break
         except ErroConsulta as erro:
-            print(f"{ioc}: ERRO ({erro})")
+            resultados.append({"ioc": ioc, "status": "ERRO", "erro": str(erro)})
             continue
 
-        pais = dados.get("countryCode") or "desconhecido"
-        provedor = dados.get("isp") or "desconhecido"
-        print(
-            f"{ioc}: pontuação {dados['abuseConfidenceScore']}% | "
-            f"{dados['totalReports']} denúncias | {pais} | {provedor}"
-        )
+        pontuacao = dados["abuseConfidenceScore"]
+        resultados.append({
+            "ioc": ioc,
+            "status": classificar(pontuacao),
+            "pontuacao": pontuacao,
+            "denuncias": dados["totalReports"],
+            "pais": dados.get("countryCode") or "desconhecido",
+            "provedor": dados.get("isp") or "desconhecido",
+        })
+    return resultados
+
+
+def imprimir(resultados):
+    for r in resultados:
+        if "pontuacao" in r:
+            print(f"[{r['status']}] {r['ioc']} | pontuação {r['pontuacao']}% | "
+                  f"{r['denuncias']} denúncias | {r['pais']} | {r['provedor']}")
+        else:
+            print(f"[{r['status']}] {r['ioc']} | {r['erro']}")
+
+    total = len(resultados)
+    maliciosos = sum(r["status"] == "MALICIOSO" for r in resultados)
+    suspeitos = sum(r["status"] == "SUSPEITO" for r in resultados)
+    print(f"\nResumo: {total} IOCs processados | {maliciosos} maliciosos | {suspeitos} suspeitos")
+
+
+if __name__ == "__main__":
+       imprimir(verificar_iocs(ler_iocs("amostras/suspeitos_exemplo.json")))
