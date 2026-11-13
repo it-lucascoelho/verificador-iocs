@@ -222,3 +222,6 @@ __marimo__/
 # credenciais: nunca sobem
 .env
 relatorio.*
+
+resultado.*
+.pytest_cache/

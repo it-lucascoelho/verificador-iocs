@@ -1,3 +1,5 @@
+import argparse
+import csv
 import ipaddress
 import json
 import os
@@ -125,5 +127,40 @@ def imprimir(resultados):
     print(f"\nResumo: {total} IOCs processados | {maliciosos} maliciosos | {suspeitos} suspeitos")
 
 
+def salvar_json(resultados, caminho):
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump(resultados, f, indent=2, ensure_ascii=False)
+
+
+def salvar_csv(resultados, caminho):
+    campos = ["ioc", "status", "pontuacao", "denuncias", "pais", "provedor", "erro"]
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        escritor = csv.DictWriter(f, fieldnames=campos, restval="")
+        escritor.writeheader()
+        escritor.writerows(resultados)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Verifica a reputação de IPs (IOCs) usando a API do AbuseIPDB."
+    )
+    parser.add_argument(
+        "entrada",
+        help="arquivo .txt (um IP por linha) ou .json gerado pelo analisador-logs",
+    )
+    parser.add_argument("--saida", help="arquivo de saída (.json ou .csv)")
+    args = parser.parse_args()
+
+    resultados = verificar_iocs(ler_iocs(args.entrada))
+    imprimir(resultados)
+
+    if args.saida:
+        if args.saida.endswith(".json"):
+            salvar_json(resultados, args.saida)
+        else:
+            salvar_csv(resultados, args.saida)
+        print(f"Resultado salvo em {args.saida}")
+
+
 if __name__ == "__main__":
-       imprimir(verificar_iocs(ler_iocs("amostras/suspeitos_exemplo.json")))
+    main()
